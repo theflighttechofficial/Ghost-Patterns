@@ -1,0 +1,105 @@
+
+==============================================================================
+EXPERIMENT E -- LEAKAGE DETECTION
+==============================================================================
+The lottery, as a student would naively prepare it: sorted balls
+plus engineered features. Checked on the RAW data, before binning.
+
+                 kind                                               columns  severity                                                                                             detail
+functional_dependency                                       ball1 / has_low       1.0                                                                 ball1 determines has_low (U=1.000)
+         row_ordering ball1 / ball2 / ball3 / ball4 / ball5 / ball6 / total       1.0 100.0% of rows are sorted ascending across these 7 columns; adjacency rules are forced by the sort
+arithmetic_derivation                                ball1 / ball6 / spread       1.0                                                                            ball1 == ball6 - spread
+arithmetic_derivation                                ball6 / ball1 / spread       1.0                                                                            ball6 == ball1 + spread
+arithmetic_derivation                                spread / ball1 / ball6       1.0                                                                            spread == ball1 - ball6
+
+5 hard issues. Every one generates rules that are
+true by construction. This is what produced the 280 'significant'
+lottery rules in demo.py -- caught here in under a second, before
+any mining happened.
+
+Now the same lottery prepared honestly (draw order, no derived cols):
+  hard issues: 0   clean: True
+
+CAVEAT worth stating in your report: run this on RAW data.
+Binning launders leakage -- it weakens the signatures these
+detectors look for without weakening the spurious rules.
+
+==============================================================================
+EXPERIMENT F -- NULL MODEL CHOICE CHANGES THE ANSWER
+==============================================================================
+Synthetic basket data: heterogeneous basket sizes, popular and rare
+items, and NO genuine item affinity. Every rule found is a ghost.
+
+2500 baskets, 18 items
+Basket size: mean 7.0, median 6, max 18  <- heterogeneous, as in real retail
+
+Naive mining: 442 rules (442 distinct)
+
+  IndependentShuffle (destroys basket sizes)
+    ghost rate      : 2.7 rules per null run
+    strongest ghost : lift 1.236
+    SURVIVORS       : 292 / 442
+
+  SwapRandomization (preserves both margins)
+    ghost rate      : 445.8 rules per null run
+    strongest ghost : lift 8.207
+    SURVIVORS       : 0 / 442
+
+GROUND TRUTH: zero real associations exist in this data.
+  Wrong null  -> 292 'discoveries', all false
+  Correct null -> 0 'discoveries'
+
+  Choosing the wrong null manufactured 292 false
+  findings. IndependentShuffle destroys the row margins, so the
+  null loses the big baskets that generate co-occurrence
+  mechanically -- making ordinary rules look extraordinary.
+  Curveball keeps basket sizes and item frequencies exact.
+
+  Report which null you used and why. It is a modelling decision,
+  not a default, and it can change the conclusion.
+
+==============================================================================
+EXPERIMENT G -- BENCHMARKING THE VALIDATOR ITSELF
+==============================================================================
+Every ghost-hunting method claims to work. This measures whether
+this one does, on synthetic data with known ground truth.
+
+==============================================================================
+VALIDATOR BENCHMARK  (quick mode)
+==============================================================================
+False-positive rate: 10 structureless datasets (n=600, 16 columns)
+  10/10 trials, 0 with >=1 false survivor
+
+  Naive Apriori reported 0.7 rules per structureless dataset.
+  After validation: 0.00 survivors per dataset.
+  Family-wise error rate: 0.0% (target <= 5%) PASS
+
+Power curve: 5 effect sizes x 6 trials
+  effect=0.05  power=0%  false survivors/run=0.00
+  effect=0.10  power=0%  false survivors/run=0.00
+  effect=0.20  power=67%  false survivors/run=0.17
+  effect=0.30  power=83%  false survivors/run=0.00
+  effect=0.50  power=100%  false survivors/run=0.00
+
+  Minimum detectable effect (80% power): 0.3
+
+False discovery rate: 8 datasets with a planted effect of 0.35
+  8 true positives, 1 false positives
+  FDR = 11.1% (target <= 5%) INCONCLUSIVE (only 9 discoveries; need ~40)
+  Recall = 100%
+
+==============================================================================
+BENCHMARK SUMMARY
+==============================================================================
+  False positive rate (FWER) : 0.0%
+  False discovery rate       : 11.1%
+  Minimum detectable effect  : 0.3
+  Ghosts suppressed          : 0.7 -> 0.00 per structureless dataset
+
+==============================================================================
+SUMMARY
+==============================================================================
+E. Leakage is caught mechanically, before mining -- closing the gap
+   that demo.py's Experiment B exposed.
+F. Null model choice is a modelling decision that changes results.
+G. The validator's own error rates are measured, not assumed.

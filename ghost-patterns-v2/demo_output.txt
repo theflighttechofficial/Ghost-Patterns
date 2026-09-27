@@ -1,0 +1,155 @@
+
+==============================================================================
+EXPERIMENT A -- PLANTED SIGNAL (2 real rules hidden in 18 noise columns)
+==============================================================================
+Naive mining returned 451 rules above the thresholds.
+After removing padded/redundant variants: 166 distinct findings.
+  -> 285 of the original rules were the same
+     finding with an irrelevant condition bolted on.
+
+GHOST BASELINE (60 null replicates, identical pipeline)
+  rules per null run : mean 113.2, max 162
+  ghost rate         : a structureless copy of this dataset yields 113 rules
+  null lift          : median 1.223, 95th pct 1.294, max 1.468
+  best-of-run lift   : mean 1.352, max 1.468
+
+VERDICTS (on the deduplicated set)
+  REAL (family-wise)     8
+  likely real (FDR)      0
+  GHOST                  158
+
+SURVIVORS (8 of 166):
+                                       rule  support  confidence   lift  p_value  q_value  fwer_p            verdict
+ {promo=yes, weekend=yes} -> {basket=large}   0.0633      0.7787 3.0657  0.00015  0.00305 0.01639 REAL (family-wise)
+{weather=rain} -> {basket=small, delay=yes}   0.1580      0.6354 2.7546  0.00015  0.00305 0.01639 REAL (family-wise)
+              {weather=rain} -> {delay=yes}   0.2060      0.8284 2.7014  0.00015  0.00305 0.01639 REAL (family-wise)
+              {delay=yes} -> {weather=rain}   0.2060      0.6717 2.7014  0.00015  0.00305 0.01639 REAL (family-wise)
+  {weather=rain} -> {delay=yes, weekend=no}   0.1527      0.6139 2.6463  0.00015  0.00305 0.01639 REAL (family-wise)
+    {weather=rain} -> {delay=yes, promo=no}   0.1393      0.5603 2.5703  0.00015  0.00305 0.01639 REAL (family-wise)
+ {basket=large, promo=yes} -> {weekend=yes}   0.0633      0.5655 2.1100  0.00015  0.00305 0.01639 REAL (family-wise)
+ {basket=large, weekend=yes} -> {promo=yes}   0.0633      0.5938 1.9278  0.00015  0.00305 0.01639 REAL (family-wise)
+
+RECOVERY CHECK (did we find what we planted?)
+  {weather=rain} -> {delay=yes}            FOUND  lift=2.70  REAL (family-wise)
+  -> {basket=large}                        FOUND  lift=3.07  REAL (family-wise)
+
+==============================================================================
+EXPERIMENT A2 -- WHICH COLUMNS ARE LOAD-BEARING?
+==============================================================================
+Statistic: number of rules with lift > 1.5. Shuffle one column at a
+time. Columns whose shuffling destroys the rules are where the
+structure actually lives; the rest are decoration.
+
+ column  baseline  shuffled_mean  drop  z_score  p_value  load_bearing
+weather       2.0            0.0   2.0      inf  0.02439          True
+  delay       2.0            0.0   2.0      inf  0.02439          True
+  promo       2.0            2.0   0.0      NaN  1.00000         False
+weekend       2.0            2.0   0.0      NaN  1.00000         False
+ basket       2.0            2.0   0.0      NaN  1.00000         False
+noise00       2.0            2.0   0.0      NaN  1.00000         False
+noise01       2.0            2.0   0.0      NaN  1.00000         False
+noise02       2.0            2.0   0.0      NaN  1.00000         False
+
+==============================================================================
+EXPERIMENT B -- LOTTERY, MINED NAIVELY (sorted balls + derived features)
+==============================================================================
+The balls are sorted, so ball1 <= ball2 <= ... is a hard constraint,
+and has_low/sum_bucket/spread are arithmetic functions of the balls.
+Watch what the validation says.
+
+Naive mining returned 900 rules above the thresholds.
+After removing padded/redundant variants: 321 distinct findings.
+  -> 579 of the original rules were the same
+     finding with an irrelevant condition bolted on.
+
+GHOST BASELINE (60 null replicates, identical pipeline)
+  rules per null run : mean 3.6, max 8
+  ghost rate         : a structureless copy of this dataset yields 4 rules
+  null lift          : median 1.239, 95th pct 1.355, max 1.469
+  best-of-run lift   : mean 1.228, max 1.469
+
+VERDICTS (on the deduplicated set)
+  REAL (family-wise)     275
+  likely real (FDR)      5
+  GHOST                  41
+
+SURVIVORS (280 of 321):
+                                      rule  support  confidence   lift  p_value  q_value  fwer_p            verdict
+           {ball4=a} -> {ball2=a, ball3=a}   0.0467      0.8889 7.0640  0.00457  0.00568 0.01639 REAL (family-wise)
+           {ball4=a} -> {ball1=a, ball3=a}   0.0483      0.9206 6.7364  0.00457  0.00568 0.01639 REAL (family-wise)
+       {ball4=a} -> {ball3=a, has_low=yes}   0.0492      0.9365 6.5338  0.00457  0.00568 0.01639 REAL (family-wise)
+                    {ball4=a} -> {ball3=a}   0.0492      0.9365 6.5338  0.00457  0.00568 0.01639 REAL (family-wise)
+        {ball1=c} -> {ball2=c, has_low=no}   0.0642      0.6063 6.1658  0.00457  0.00568 0.01639 REAL (family-wise)
+        {ball2=c, has_low=no} -> {ball1=c}   0.0642      0.6525 6.1658  0.00457  0.00568 0.01639 REAL (family-wise)
+  {has_low=no, spread=narrow} -> {ball1=c}   0.0575      0.5847 5.5252  0.00457  0.00568 0.01639 REAL (family-wise)
+{ball1=c} -> {has_low=no, sum_bucket=high}   0.0625      0.5906 5.1727  0.00457  0.00568 0.01639 REAL (family-wise)
+    {ball5=b} -> {ball4=b, sum_bucket=low}   0.0492      0.5728 4.2961  0.00457  0.00568 0.01639 REAL (family-wise)
+           {ball2=d} -> {ball3=d, ball6=e}   0.0533      0.5766 4.2709  0.00457  0.00568 0.01639 REAL (family-wise)
+
+READING THIS RESULT -- the most important lesson in the project:
+  These rules PASS. The statistics are not broken; the dependence is
+  genuinely there. But it comes from SORTING and from FEATURE LEAKAGE,
+  not from the lottery. A null model tests whether structure exists.
+  It cannot tell you the structure is an artefact of your own
+  preprocessing. Only reading the rules can do that.
+  Statistical significance is necessary, not sufficient.
+
+==============================================================================
+EXPERIMENT C -- LOTTERY, MINED HONESTLY (draw order, no derived features)
+==============================================================================
+Same lottery, leakage removed. If the method is sound, the haul
+should collapse to nothing.
+
+Naive mining returned 0 rules above the thresholds.
+Nothing to validate.
+
+==============================================================================
+EXPERIMENT C2 -- CLUSTERING PURE NOISE
+==============================================================================
+Silhouette on structureless data vs matched null:
+
+ k  silhouette  null_mean  null_std  excess  p_value  beats_noise
+ 2      0.0954     0.0935    0.0023  0.0019   0.1905        False
+ 3      0.0902     0.0881    0.0020  0.0021   0.1429        False
+ 4      0.0940     0.0887    0.0022  0.0053   0.0476         True
+ 5      0.0895     0.0901    0.0028 -0.0006   0.6190        False
+ 6      0.0932     0.0920    0.0027  0.0012   0.3810        False
+
+Several raw silhouettes look acceptable by the usual rule of thumb.
+The 'excess' column is what matters, and it sits at ~0.
+/home/claude/ghost2/demo.py:245: RuntimeWarning: n_replicates=8 in stability cannot yield p <= 0.05: the p-value floor is 1/9 = 0.1111. This test will report zero significant results regardless of the data. Use at least 19 replicates (100+ recommended).
+  print(f"\nStability check: {clusters.stability(noise, k=3, n_runs=12, n_null=8, seed=2)}")
+
+Stability check: k=3 unstable: ARI=0.304+/-0.161 (noise gets 0.255, p=0.3333)
+
+==============================================================================
+EXPERIMENT D -- ANOMALY DETECTION AND THE CURSE OF DIMENSIONALITY
+==============================================================================
+Pure Gaussian noise. Zero anomalies exist. Every flag is a ghost.
+
+ dimensions  relative_contrast  points_flagged  flag_rate  true_anomalies  all_ghosts
+          2            79.9315              25       0.05               0        True
+          5             6.7721              25       0.05               0        True
+         10             2.6493              25       0.05               0        True
+         20             1.4575              25       0.05               0        True
+         50             0.7259              25       0.05               0        True
+        100             0.4474              25       0.05               0        True
+        200             0.2978              25       0.05               0        True
+
+Same data, validated against a matched null instead of a fixed quota:
+/home/claude/ghost2/demo.py:255: RuntimeWarning: n_replicates=15 in anomalies_vs_null cannot yield p <= 0.05: the p-value floor is 1/16 = 0.0625. This test will report zero significant results regardless of the data. Use at least 19 replicates (100+ recommended).
+  print(f"  d={d:<4} {anomalies_vs_null(X, n_null=15, seed=4)}")
+  d=5    isolation_forest: no excess over noise -- 8 points above the null's 99th pct (expected 1.0%, observed 1.6%, p=0.1250)
+/home/claude/ghost2/demo.py:255: RuntimeWarning: n_replicates=15 in anomalies_vs_null cannot yield p <= 0.05: the p-value floor is 1/16 = 0.0625. This test will report zero significant results regardless of the data. Use at least 19 replicates (100+ recommended).
+  print(f"  d={d:<4} {anomalies_vs_null(X, n_null=15, seed=4)}")
+  d=50   isolation_forest: no excess over noise -- 4 points above the null's 99th pct (expected 1.0%, observed 0.8%, p=0.8125)
+
+==============================================================================
+SUMMARY
+==============================================================================
+A. Planted structure is recovered and noise is rejected.
+B. Statistically real does not mean meaningful -- leakage passes every test.
+C. With leakage removed, a structureless dataset yields nothing.
+D. Anomaly counts are set by the contamination parameter, not the data.
+
+Report the ghost rate next to every mining result you publish.
