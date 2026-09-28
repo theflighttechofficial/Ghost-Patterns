@@ -6,6 +6,8 @@ fails to preserve what it claims to preserve invalidates every result built on
 it, and does so silently.
 """
 
+import os
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -341,3 +343,201 @@ class TestAnomaly:
         low = relative_contrast(rng.normal(size=(300, 2)), seed=0)
         high = relative_contrast(rng.normal(size=(300, 100)), seed=0)
         assert low > high
+
+    def test_noise_has_no_excess(self, numeric):
+        from ghostpatterns.anomaly import anomalies_vs_null
+        res = anomalies_vs_null(numeric, n_null=20, seed=0)
+        assert not res.real
+
+    def test_planted_outliers_detected(self):
+        from ghostpatterns.anomaly import anomalies_vs_null
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(400, 3))
+        X[:20] += 8                     # 5% gross outliers
+        res = anomalies_vs_null(pd.DataFrame(X), method="mahalanobis",
+                                n_null=20, seed=0)
+        assert res.real and res.n_flagged >= 15
+
+    def test_result_keeps_scores(self, numeric):
+        from ghostpatterns.anomaly import anomalies_vs_null
+        res = anomalies_vs_null(numeric, n_null=20, seed=0)
+        assert len(res.scores) == len(numeric)
+        assert len(res.null_scores) == 20 * len(numeric)
+        assert "scores" not in repr(res)
+
+
+# ------------------------------------------------- target-focused rules
+
+
+class TestTargetRules:
+    def test_filter_keeps_only_target_consequents(self, categorical):
+        found, names = rules.mine(categorical, min_support=0.05,
+                                  min_confidence=0.3, max_len=3)
+        kept = rules.filter_by_target(found, names, "dep")
+        items = rules.target_items(names, "dep")
+        assert kept
+        assert all(r.consequent <= items and len(r.consequent) == 1
+                   and not r.antecedent & items for r in kept)
+
+    def test_filter_none_keeps_everything(self, categorical):
+        found, names = rules.mine(categorical, min_support=0.05)
+        assert len(rules.filter_by_target(found, names, None)) == len(found)
+
+    def test_filter_rejects_unknown_target(self, categorical):
+        found, names = rules.mine(categorical, min_support=0.05)
+        with pytest.raises(ValueError, match="target"):
+            rules.filter_by_target(found, names, "missing")
+
+    def test_null_distribution_respects_target(self, categorical):
+        params = dict(min_support=0.05, min_confidence=0.3, min_lift=1.0,
+                      max_len=2)
+        nm = IndependentShuffle(categorical)
+        _, _, all_counts = rules.ghost_lift_distribution(nm, 5, seed=0,
+                                                         **params)
+        _, _, tgt_counts = rules.ghost_lift_distribution(nm, 5, seed=0,
+                                                         target="dep", **params)
+        assert (tgt_counts <= all_counts).all()
+
+    def test_frame_has_effect_columns(self, categorical):
+        found, names = rules.mine(categorical, min_support=0.05)
+        table = rules.rules_to_frame(found, names)
+        assert {"leverage", "count"} <= set(table.columns)
+        assert set(rules.rules_to_frame([], names).columns) == set(table.columns)
+
+
+# ------------------------------------------------- benchmark
+
+
+class TestBenchmark:
+    def test_synthetic_shape_and_plant(self):
+        from ghostpatterns.benchmark import synthetic
+        df, planted = synthetic(n=200, n_noise=3, effect=0.4, seed=0)
+        assert df.shape == (200, 5)
+        assert planted == ("source", "target")
+        assert synthetic(n=50, effect=0.0)[1] is None
+
+    def test_trial_recovers_strong_effect(self):
+        from ghostpatterns.benchmark import run_trial, synthetic
+        df, planted = synthetic(n=800, n_noise=4, effect=0.6, seed=1)
+        r = run_trial(df, planted, n_null=20, seed=1)
+        assert r.recovered
+
+
+# ------------------------------------------------- figures
+
+
+class TestViz:
+    def test_plots_write_png(self, tmp_path, numeric):
+        from ghostpatterns import viz
+        from ghostpatterns.anomaly import anomalies_vs_null
+        table = pd.DataFrame({"rule": ["{a=x} -> {dep=yes}"], "lift": [2.0],
+                              "confidence": [0.9],
+                              "verdict": ["REAL (family-wise)"]})
+        attr = pd.DataFrame({"column": ["a", "b"], "drop": [3.0, 0.0],
+                             "load_bearing": [True, False]})
+        res = anomalies_vs_null(numeric, n_null=20, seed=0)
+        paths = [
+            viz.plot_top_rules(table, str(tmp_path / "t.png"), null_p95=1.2,
+                               null_max=1.5),
+            viz.plot_top_rules(table.iloc[:0], str(tmp_path / "empty.png")),
+            viz.plot_column_attribution(attr, str(tmp_path / "a.png")),
+            viz.plot_anomaly_scores(res, str(tmp_path / "s.png")),
+            viz.plot_lift_distribution([2.0], np.array([]),
+                                       str(tmp_path / "l.png")),
+        ]
+        for p in paths:
+            assert os.path.getsize(p) > 0
+
+
+# ------------------------------------------------- apply script
+
+
+class TestApplyScript:
+    def test_end_to_end_writes_outputs(self, tmp_path, categorical):
+        import apply_to_your_data as app
+        rng = np.random.default_rng(0)
+        df = categorical.copy()
+        df["const"] = "same"
+        df["x1"] = rng.normal(size=len(df))
+        df["x2"] = rng.normal(size=len(df))
+        csv = tmp_path / "data.csv"
+        df.to_csv(csv, index=False)
+        out = app.main([str(csv), "--target", "dep", "--n-null", "20",
+                        "--outdir", str(tmp_path / "out"), "--no-attribution"])
+        for name in ("report.md", "log.txt", "rules_all.csv", "leakage.csv",
+                     "clusters_silhouette.csv", "anomalies.csv",
+                     "figures/top_rules.png"):
+            assert os.path.exists(os.path.join(out, name)), name
+        survivors = pd.read_csv(os.path.join(out, "rules_survivors.csv"))
+        assert survivors.rule.str.contains("a=x").any()
+        all_rules = pd.read_csv(os.path.join(out, "rules_all.csv"))
+        assert not all_rules.rule.str.contains("const=").any()
+
+    def test_html_report_is_self_contained(self, tmp_path, categorical):
+        import apply_to_your_data as app
+        csv = tmp_path / "data.csv"
+        categorical.to_csv(csv, index=False)
+        out = app.main([str(csv), "--target", "dep", "--n-null", "20",
+                        "--outdir", str(tmp_path / "out"), "--no-attribution"])
+        page = open(os.path.join(out, "report.html"), encoding="utf-8").read()
+        assert "data:image/png;base64," in page
+        assert "http://" not in page and "https://" not in page
+        assert "a=x" in page
+
+    def test_unknown_target_exits(self, tmp_path, categorical):
+        import apply_to_your_data as app
+        csv = tmp_path / "data.csv"
+        categorical.to_csv(csv, index=False)
+        with pytest.raises(SystemExit):
+            app.main([str(csv), "--target", "nope",
+                      "--outdir", str(tmp_path / "o")])
+
+
+class TestCLI:
+    def test_version(self, capsys):
+        from ghostpatterns.cli import run
+        with pytest.raises(SystemExit) as e:
+            run(["--version"])
+        assert e.value.code == 0
+        assert "ghostpatterns" in capsys.readouterr().out
+
+    def test_leakage_exit_codes(self, tmp_path):
+        from ghostpatterns.cli import run
+        rng = np.random.default_rng(0)
+        clean = pd.DataFrame({c: rng.choice(list("abcd"), 300) for c in "wxy"})
+        leaky = clean.assign(copy=clean.w.map(str.upper))
+        for df, code in ((clean, 0), (leaky, 2)):
+            p = tmp_path / f"{code}.csv"
+            df.to_csv(p, index=False)
+            with pytest.raises(SystemExit) as e:
+                run(["leakage", str(p)])
+            assert e.value.code == code
+
+    def test_analyse_library_api(self, categorical):
+        from ghostpatterns.analyse import Options, analyse
+        res = analyse(categorical, Options(target="dep", n_null=20,
+                                           attribution=False),
+                      log=lambda *_: None)
+        assert res.rules.survivors.rule.str.contains("a=x").any()
+        assert "beat the null" in res.headline()
+        with pytest.raises(ValueError, match="not a column"):
+            analyse(categorical, Options(target="nope"), log=lambda *_: None)
+
+    def test_explain_rule(self):
+        from ghostpatterns.report import explain_rule
+        s = explain_rule("{a=x, b=y} -> {t=1}", 0.9, 2.5)
+        assert s == "When a=x and b=y, t=1 holds 90% of the time (2.50x its usual rate)."
+
+
+class TestApp:
+    def test_demo_run(self):
+        pytest.importorskip("streamlit")
+        from streamlit.testing.v1 import AppTest
+        import ghostpatterns
+        app = os.path.join(os.path.dirname(ghostpatterns.__file__), "app.py")
+        at = AppTest.from_file(app, default_timeout=300)
+        at.run()
+        at.sidebar.radio[0].set_value("Demo: planted rules").run()
+        at.sidebar.button[0].click().run()
+        assert not at.exception
+        assert any("beat the null" in m.value for m in at.markdown)

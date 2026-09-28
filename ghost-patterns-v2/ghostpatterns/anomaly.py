@@ -18,7 +18,7 @@ find out whether your detector can work at all in your dimensionality.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -60,6 +60,9 @@ class AnomalyResult:
     null_rate: float
     p_value: float
     threshold: float
+    # Raw score arrays, kept for plotting. Excluded from repr: they are long.
+    scores: np.ndarray | None = field(default=None, repr=False)
+    null_scores: np.ndarray | None = field(default=None, repr=False)
 
     @property
     def real(self) -> bool:
@@ -108,6 +111,8 @@ def anomalies_vs_null(df: pd.DataFrame, method="isolation_forest",
         null_rate=float(null_rates.mean()),
         p_value=float(p),
         threshold=threshold,
+        scores=real_scores,
+        null_scores=np.concatenate(null_score_sets),
     )
 
 

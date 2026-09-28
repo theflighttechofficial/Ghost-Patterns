@@ -101,3 +101,5 @@ Thumbs.db
 *.log
 results_rules.csv
 mushrooms_report.txt
+results/
+

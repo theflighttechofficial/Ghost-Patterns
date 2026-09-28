@@ -1,0 +1,8 @@
+# Used by `streamlit run ghostpatterns/app.py` from this folder.
+# `ghostpatterns app` passes the same theme on the command line.
+[theme]
+base = "dark"
+primaryColor = "#38bdf8"
+backgroundColor = "#0b1120"
+secondaryBackgroundColor = "#111827"
+textColor = "#e2e8f0"

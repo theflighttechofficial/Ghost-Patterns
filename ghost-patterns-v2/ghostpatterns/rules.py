@@ -163,9 +163,43 @@ def mine(df: pd.DataFrame, min_support=0.05, min_confidence=0.5, min_lift=1.0,
 # ------------------------------------------------- null calibration
 
 
-def ghost_lift_distribution(null_model, n_replicates=100, seed=0, **mine_kwargs):
+def target_items(names: list[str], target: str) -> set[int]:
+    """Indices of every item that encodes a value of the `target` column."""
+    prefix = f"{target}="
+    return {i for i, n in enumerate(names) if n.startswith(prefix)}
+
+
+def filter_by_target(rules: list[Rule], names: list[str],
+                     target: str | None) -> list[Rule]:
+    """
+    Keep only rules that PREDICT the target column: the consequent is a
+    single target item and the antecedent does not mention the target.
+
+    Focusing on one question shrinks the hypothesis family from thousands of
+    arbitrary column pairs to the handful you actually care about, which makes
+    every correction downstream far less punishing. Pass target=None to keep
+    everything.
+    """
+    if target is None:
+        return list(rules)
+    items = target_items(names, target)
+    if not items:
+        raise ValueError(f"target column {target!r} produced no items")
+    return [
+        r for r in rules
+        if len(r.consequent) == 1 and r.consequent <= items
+        and not (r.antecedent & items)
+    ]
+
+
+def ghost_lift_distribution(null_model, n_replicates=100, seed=0,
+                            target: str | None = None, **mine_kwargs):
     """
     Run the identical mining pipeline on null replicates.
+
+    If `target` is given, null rules are filtered exactly like the real ones
+    (see filter_by_target), so the ghost distribution answers the same
+    question the real rules do.
 
     Returns:
       all_lifts : every lift value seen across all replicates (for per-rule
@@ -176,7 +210,8 @@ def ghost_lift_distribution(null_model, n_replicates=100, seed=0, **mine_kwargs)
     """
     all_lifts, max_lifts, counts = [], [], []
     for rep in null_model.replicates(n_replicates, seed=seed):
-        rules, _ = mine(rep, **mine_kwargs)
+        rules, names = mine(rep, **mine_kwargs)
+        rules = filter_by_target(rules, names, target)
         lifts = [r.lift for r in rules]
         counts.append(len(rules))
         all_lifts.extend(lifts)
@@ -293,7 +328,7 @@ def rules_to_frame(rules, names) -> pd.DataFrame:
     if not rules:
         return pd.DataFrame(
             columns=["rule", "support", "confidence", "lift", "p_value",
-                     "q_value", "fwer_p", "verdict"]
+                     "q_value", "fwer_p", "verdict", "leverage", "count"]
         )
     rows = [
         {
@@ -305,6 +340,8 @@ def rules_to_frame(rules, names) -> pd.DataFrame:
             "q_value": round(r.q_value, 5),
             "fwer_p": round(r.fwer_p, 5),
             "verdict": r.verdict,
+            "leverage": round(r.leverage, 5),
+            "count": r.count,
         }
         for r in rules
     ]

@@ -183,6 +183,95 @@ def plot_silhouette_vs_null(sil_df, path="figures/silhouette.png"):
     return _save(fig, path)
 
 
+def plot_top_rules(table: pd.DataFrame, path="figures/top_rules.png", top=15,
+                   null_p95: float | None = None, null_max: float | None = None):
+    """
+    Horizontal bars for the strongest validated rules, coloured by verdict.
+
+    The reference lines show where noise stops. A bar that ends left of the
+    strongest ghost would not have survived; the visual gap is the evidence.
+    """
+    shown = table.head(top).iloc[::-1]
+    fig, ax = plt.subplots(figsize=(9, max(3.0, 0.38 * len(shown) + 1.2)))
+
+    if shown.empty:
+        ax.text(0.5, 0.5, "No rule survived validation.", transform=ax.transAxes,
+                ha="center", va="center", fontsize=11)
+        ax.set_yticks([])
+    else:
+        colors = [REAL if v == "REAL (family-wise)" else NEUTRAL
+                  for v in shown.verdict]
+        y = np.arange(len(shown))
+        ax.barh(y, shown.lift, color=colors)
+        labels = [r if len(r) <= 70 else r[:67] + "..." for r in shown.rule]
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels, fontsize=8)
+        for yi, (lift, conf) in enumerate(zip(shown.lift, shown.confidence)):
+            ax.text(lift, yi, f" {lift:.2f} (conf {conf:.0%})", va="center",
+                    fontsize=7.5)
+        ax.set_xlim(0, shown.lift.max() * 1.25)
+
+    if null_p95 is not None:
+        ax.axvline(null_p95, color=GHOST, ls="--", lw=1.3,
+                   label=f"null 95th pct = {null_p95:.2f}")
+    if null_max is not None:
+        ax.axvline(null_max, color="black", ls=":", lw=1.3,
+                   label=f"strongest ghost = {null_max:.2f}")
+
+    _style(ax, f"Top {len(shown)} validated rules", "lift", "")
+    ax.grid(axis="x", alpha=0.25, linewidth=0.6)
+    ax.grid(axis="y", visible=False)
+    if null_p95 is not None or null_max is not None:
+        ax.legend(frameon=False, fontsize=8, loc="lower right")
+    return _save(fig, path)
+
+
+def plot_column_attribution(attr_df: pd.DataFrame,
+                            path="figures/column_attribution.png"):
+    """
+    How much structure disappears when each column is shuffled. Columns with
+    no drop are decoration and can be removed from the analysis.
+    """
+    df = attr_df.sort_values("drop")
+    fig, ax = plt.subplots(figsize=(8, max(3.0, 0.32 * len(df) + 1.2)))
+    colors = [REAL if lb else NEUTRAL for lb in df.load_bearing]
+    ax.barh(np.arange(len(df)), df["drop"], color=colors)
+    ax.set_yticks(np.arange(len(df)))
+    ax.set_yticklabels(df.column, fontsize=8.5)
+    _style(ax, "Which columns carry the structure",
+           "drop in strong-rule count when column is shuffled", "")
+    ax.grid(axis="x", alpha=0.25, linewidth=0.6)
+    ax.grid(axis="y", visible=False)
+    ax.bar(0, 0, color=REAL, label="load-bearing (p <= 0.05)")
+    ax.bar(0, 0, color=NEUTRAL, label="not significant")
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    return _save(fig, path)
+
+
+def plot_anomaly_scores(result, path="figures/anomaly_scores.png"):
+    """
+    Real anomaly-score distribution over the null's. Only mass to the right
+    of the threshold, in EXCESS of the null's, is evidence of anomalies.
+    """
+    if result.scores is None or result.null_scores is None:
+        raise ValueError("result carries no scores; rerun anomalies_vs_null")
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    lo = min(result.scores.min(), result.null_scores.min())
+    hi = max(result.scores.max(), result.null_scores.max())
+    bins = np.linspace(lo, hi, 60)
+    ax.hist(result.null_scores, bins=bins, density=True, color=NEUTRAL,
+            alpha=0.6, label="null (structureless)")
+    ax.hist(result.scores, bins=bins, density=True, histtype="step",
+            color=REAL, lw=1.8, label="observed")
+    ax.axvline(result.threshold, color=GHOST, ls="--", lw=1.4,
+               label=f"null 99th pct ({result.n_flagged} points above)")
+    verdict = "real excess" if result.real else "no excess"
+    _style(ax, f"{result.method}: {verdict} (p={result.p_value:.3f})",
+           "anomaly score (higher = stranger)", "density")
+    ax.legend(frameon=False, fontsize=9)
+    return _save(fig, path)
+
+
 def generate_all(outdir="figures", quick=True):
     """
     Build the full figure set from live computation -- nothing hardcoded.
