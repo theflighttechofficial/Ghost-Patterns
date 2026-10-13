@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Docs · Ghost Patterns</title>
+<meta name="description" content="Install Ghost Patterns and run it on your own data from the command line or Python.">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/site.js"></script>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <div class="brand"><a href="index.html">Ghost<span>.</span>Patterns</a></div>
+    <a class="link" href="index.html">Home</a>
+    <a class="link" href="lab.html">Lab</a>
+    <a class="link" href="method.html">Method</a>
+    <a class="link" href="results.html">Results</a>
+    <a class="link" href="docs.html" aria-current="page">Docs</a>
+    <button class="theme-toggle" type="button" aria-label="Switch colour theme">Dark</button>
+    <button class="theme-toggle menu-toggle" type="button" aria-expanded="false" aria-label="Open menu">Menu</button>
+  </div>
+</nav>
+
+<main class="wrap">
+<header class="page-head">
+  <p class="label">Documentation</p>
+  <h1>Run it on <em>your own data.</em></h1>
+</header>
+
+<div class="doc">
+  <aside class="toc" aria-label="On this page">
+    <span class="label">On this page</span>
+    <a href="#install">Install</a>
+    <a href="#quickstart">Quick start</a>
+    <a href="#cli">Command line</a>
+    <a href="#options">Options</a>
+    <a href="#outputs">Output files</a>
+    <a href="#reading">Reading the report</a>
+    <a href="#python">Python library</a>
+    <a href="#choosing">Choosing a null</a>
+    <a href="#faq">Questions</a>
+  </aside>
+
+  <article class="doc-body">
+    <h2 id="install">Install</h2>
+    <p>Python 3.9 or newer. From the project folder:</p>
+    <div class="copy-row"><button class="copy" type="button">Copy</button><pre><code>pip install .              <span class="c"># the library and the ghostpatterns command</span>
+pip install -e ".[dev]"    <span class="c"># editable, with pytest</span></code></pre></div>
+    <p>Dependencies: numpy, pandas, scipy, scikit-learn and matplotlib.</p>
+
+    <h2 id="quickstart">Quick start</h2>
+    <div class="copy-row"><button class="copy" type="button">Copy</button><pre><code>ghostpatterns analyse mushrooms.csv --target Mushroom_quality --open</code></pre></div>
+    <p>This checks for leakage, mines rules that predict <code>Mushroom_quality</code>, tests them against 100 shuffled copies, finds the load-bearing columns, writes everything to <code>results/mushrooms/</code> and opens the HTML report. It takes about five minutes on the 8,124-row Mushroom data.</p>
+    <div class="note"><b>Use a target when you have one.</b> Asking "what predicts this column?" tests far fewer hypotheses than "what goes with what?", and the results are much sharper.</div>
+
+    <h2 id="cli">Command line</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">ghostpatterns analyse FILE</td><td>Full analysis and reports</td></tr>
+        <tr><td class="mono">ghostpatterns leakage FILE</td><td>Leakage check only. Exit code 0 if clean, 2 if hard leakage is found, so it can gate a CI pipeline</td></tr>
+        <tr><td class="mono">ghostpatterns benchmark --quick</td><td>Measures the validator's false-positive rate, power and FDR</td></tr>
+        <tr><td class="mono">ghostpatterns figures</td><td>Regenerates the explainer figures</td></tr>
+        <tr><td class="mono">python -m ghostpatterns …</td><td>Same commands, when the script is not on PATH</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2 id="options">Options for analyse</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Option</th><th>Default</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">--target COL</td><td>none</td><td>Only test rules that predict COL</td></tr>
+        <tr><td class="mono">--n-null N</td><td>100</td><td>Null runs. At least 19 for α = 0.05</td></tr>
+        <tr><td class="mono">--alpha A</td><td>0.05</td><td>Significance level</td></tr>
+        <tr><td class="mono">--min-support S</td><td>0.05</td><td>Lower mines more rules and more ghosts</td></tr>
+        <tr><td class="mono">--min-confidence C</td><td>0.60</td><td></td></tr>
+        <tr><td class="mono">--min-lift L</td><td>1.20</td><td></td></tr>
+        <tr><td class="mono">--max-len K</td><td>3</td><td>Maximum items per rule</td></tr>
+        <tr><td class="mono">--max-cardinality M</td><td>15</td><td>Skip columns with more distinct values</td></tr>
+        <tr><td class="mono">--drop-leaking</td><td>off</td><td>Drop columns flagged as hard leakage (never the target)</td></tr>
+        <tr><td class="mono">--no-attribution</td><td>off</td><td>Skip column attribution, the slowest step</td></tr>
+        <tr><td class="mono">--outdir DIR</td><td>results/&lt;name&gt;</td><td>Where to write outputs</td></tr>
+        <tr><td class="mono">--open</td><td>off</td><td>Open the HTML report when done</td></tr>
+        <tr><td class="mono">--seed N</td><td>1</td><td>Same seed, same numbers</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2 id="outputs">Output files</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>File</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">report.html</td><td>Self-contained interactive report; works offline, share it as one file</td></tr>
+        <tr><td class="mono">report.md</td><td>The same report as Markdown</td></tr>
+        <tr><td class="mono">log.txt</td><td>Full console output</td></tr>
+        <tr><td class="mono">rules_all.csv</td><td>Every rule: support, confidence, lift, p, q, FWER p, verdict</td></tr>
+        <tr><td class="mono">rules_survivors.csv</td><td>Rules that beat the null</td></tr>
+        <tr><td class="mono">leakage.csv</td><td>Leakage findings</td></tr>
+        <tr><td class="mono">column_attribution.csv</td><td>Which columns carry the structure</td></tr>
+        <tr><td class="mono">clusters_*.csv, anomalies.csv</td><td>Numeric data only</td></tr>
+        <tr><td class="mono">figures/</td><td>All plots as PNG</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2 id="reading">Reading the report</h2>
+    <ul>
+      <li><b>Ghost rate</b>: rules the same mining finds in shuffled data. Report it next to your findings.</li>
+      <li><b>REAL (family-wise)</b>: beats the best rule of noise in at least 95% of runs. A headline result.</li>
+      <li><b>likely real (FDR)</b>: passes false-discovery-rate control. Report with a caveat.</li>
+      <li><b>GHOST</b>: what noise produces anyway.</li>
+      <li>If noise produced no rules at all, per-rule p and q values are uninformative; read <code>fwer_p</code>. The log says so.</li>
+    </ul>
+
+    <h2 id="python">Python library</h2>
+    <div class="copy-row"><button class="copy" type="button">Copy</button><pre><code>import pandas as pd
+from ghostpatterns.analyse import Options, analyse, save
+
+df = pd.read_csv("mushrooms.csv")
+result = analyse(df, Options(target="Mushroom_quality", n_null=100))
+
+print(result.headline())
+print(result.rules.survivors.head())
+save(result, "results/mushrooms")      <span class="c"># CSVs, figures, report.md, report.html</span></code></pre></div>
+    <p>Lower-level pieces are public too:</p>
+    <div class="copy-row"><button class="copy" type="button">Copy</button><pre><code>from ghostpatterns import check_leakage, SwapRandomization, rules
+
+report = check_leakage(df)                       <span class="c"># before mining</span>
+found, names = rules.mine(df, min_support=0.05)
+minimal = rules.remove_redundant(found)
+lifts, best, counts = rules.ghost_lift_distribution(
+    SwapRandomization(baskets), n_replicates=200)
+rules.calibrate(minimal, lifts, best)</code></pre></div>
+
+    <h2 id="choosing">Choosing a null</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Your data</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td>Ordinary table of categories</td><td class="mono">IndependentShuffle</td></tr>
+        <tr><td>Shopping baskets, transactions, 0/1 matrix</td><td class="mono">SwapRandomization</td></tr>
+        <tr><td>Time series</td><td class="mono">BlockShuffle, PhaseRandomized</td></tr>
+        <tr><td>Numeric data, clusters or outliers</td><td class="mono">GaussianMatched</td></tr>
+        <tr><td>Is a three-item rule more than two two-item rules?</td><td class="mono">ConditionalPermutation</td></tr>
+      </tbody>
+    </table></div>
+    <p>See the <a href="method.html#nulls">method page</a> for what each one keeps and destroys.</p>
+
+    <h2 id="faq">Questions</h2>
+    <h3>Every rule came out REAL. Is something wrong?</h3>
+    <p>Not necessarily. On strongly structured data like Mushroom, noise produces almost no rules at the default thresholds, so everything mined clears the bar. Check the leakage section, and lower <code>--min-support</code> or <code>--min-lift</code> to see the ghost distribution.</p>
+    <h3>Nothing survived.</h3>
+    <p>That is a result. Report it with the ghost rate. If you expected an effect, check that <code>--n-null</code> is at least 19 and that the sample is large enough; the benchmark's minimum detectable effect is a planted rise of about 0.30 in probability.</p>
+    <h3>It is slow.</h3>
+    <p>Each null run repeats the full mining. Use <code>--no-attribution</code>, a target column, fewer null runs while exploring, and 100 or more for final numbers.</p>
+  </article>
+</div>
+
+<footer>
+  <span>Ghost Patterns 2.0 · MIT licence · Python 3.9+</span>
+  <span>Report the ghost rate next to every finding.</span>
+</footer>
+</main>
+</body>
+</html>

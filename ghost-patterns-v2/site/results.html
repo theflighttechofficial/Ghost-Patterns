@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Results · Ghost Patterns</title>
+<meta name="description" content="Experiments on data with known answers: planted signal, leakage, null-model choice, clustering, anomalies and the validator's own error rates.">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/site.js"></script>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <div class="brand"><a href="index.html">Ghost<span>.</span>Patterns</a></div>
+    <a class="link" href="index.html">Home</a>
+    <a class="link" href="lab.html">Lab</a>
+    <a class="link" href="method.html">Method</a>
+    <a class="link" href="results.html" aria-current="page">Results</a>
+    <a class="link" href="docs.html">Docs</a>
+    <button class="theme-toggle" type="button" aria-label="Switch colour theme">Dark</button>
+    <button class="theme-toggle menu-toggle" type="button" aria-expanded="false" aria-label="Open menu">Menu</button>
+  </div>
+</nav>
+
+<main class="wrap">
+<header class="page-head">
+  <p class="label">Results</p>
+  <h1>What survives, on data where <em>the answer is known.</em></h1>
+  <p class="lede col">Every experiment below uses data whose true structure is known in advance, so each verdict can be checked. Limits are listed with the numbers.</p>
+</header>
+
+<section style="padding-block-start:2.5rem">
+  <h2 class="col">Case studies</h2>
+  <figure class="plate">
+    <svg id="case-chart" class="chart" viewBox="0 0 900 300" role="img" aria-label="Rules mined, rules from noise, and validated rules for three datasets, log scale"></svg>
+    <div class="legend">
+      <span><i class="key" style="background:var(--ghost-fill)"></i>rules mined</span>
+      <span><i class="key" style="background:var(--ghost)"></i>mined from noise, per run</span>
+      <span><i class="key" style="background:var(--signal)"></i>validated</span>
+    </div>
+    <figcaption><b>40 null runs each.</b> Mushroom counts all mined rules; its validated rules are those predicting edibility, so the two numbers are not a like-for-like ratio.</figcaption>
+  </figure>
+  <div class="scroll"><table>
+    <thead><tr><th>Dataset</th><th>Ground truth</th><th style="text-align:right">Mined</th><th style="text-align:right">From noise</th><th style="text-align:right">Distinct</th><th style="text-align:right">Validated</th></tr></thead>
+    <tbody>
+      <tr><td>Pure noise, 1,500 × 16</td><td>Nothing to find</td><td class="num">20</td><td class="num">17.0</td><td class="num">20</td><td class="num hit">0</td></tr>
+      <tr><td>Planted rules, 1,500 × 15</td><td>2 planted effects</td><td class="num">170</td><td class="num">2.5</td><td class="num">14</td><td class="num hit">8</td></tr>
+      <tr><td>UCI Mushroom, 8,124 × 23</td><td>Edibility</td><td class="num">11,340</td><td class="num">0.0</td><td class="num">312</td><td class="num hit">312</td></tr>
+    </tbody>
+  </table></div>
+  <p class="col">On the planted data all 8 survivors involve only the planted columns. On Mushroom, <code>odor=f</code>, <code>gill_color=b</code> and <code>ring_type=l</code> each predict a poisonous mushroom with 100% confidence. Column attribution marks <code>odor</code>, <code>gill_color</code>, <code>spore_print_color</code> and <code>stalk_color_above_ring</code> as load-bearing.</p>
+</section>
+
+<section>
+  <h2 class="col">A · Planted signal in 18 noise columns</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Stage</th><th style="text-align:right">Rules</th></tr></thead>
+    <tbody>
+      <tr><td>Naive Apriori</td><td class="num">451</td></tr>
+      <tr><td>After redundancy filter (285 padded copies removed)</td><td class="num">166</td></tr>
+      <tr><td>Mined from noise, mean per run (max 162)</td><td class="num">113.2</td></tr>
+      <tr><td>REAL (family-wise)</td><td class="num hit">8</td></tr>
+      <tr><td>GHOST</td><td class="num">158</td></tr>
+    </tbody>
+  </table></div>
+  <p class="col">Both planted rules were recovered: {weather=rain}→{delay=yes} at lift 2.70 and {promo=yes, weekend=yes}→{basket=large} at 3.07. The strongest ghost reached 1.47.</p>
+</section>
+
+<section>
+  <h2 class="col">B, C, E · Significant is not the same as meaningful</h2>
+  <div class="lessons">
+    <div class="lesson">
+      <span class="big">280</span>
+      <h3>rules from a sorted lottery</h3>
+      <p>Sorted draws plus engineered features: 900 mined, 321 distinct, 280 pass, against a ghost rate of 3.6. Every one is real dependence, and every one comes from sorting or arithmetic.</p>
+    </div>
+    <div class="lesson">
+      <span class="big">0</span>
+      <h3>rules in raw draw order</h3>
+      <p>The same lottery without sorting or derived columns yields nothing to validate.</p>
+    </div>
+    <div class="lesson">
+      <span class="big">5</span>
+      <h3>leakage issues, found before mining</h3>
+      <p>One functional dependency, one sorted block of seven columns and three arithmetic derivations, flagged in under a second on the raw data.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="col">F · The null model changes the answer</h2>
+  <p class="col">2,500 baskets, 18 items, basket sizes from 1 to 18, and no real item affinity. Every rule found is false.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Null model</th><th style="text-align:right">From noise per run</th><th style="text-align:right">Strongest ghost</th><th style="text-align:right">Survivors</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">IndependentShuffle</td><td class="num">2.7</td><td class="num">1.24</td><td class="num hit">292 / 442</td></tr>
+      <tr><td class="mono">SwapRandomization</td><td class="num">445.8</td><td class="num">8.21</td><td class="num">0 / 442</td></tr>
+    </tbody>
+  </table></div>
+  <p class="col">Column shuffling evens out basket sizes, so the null loses the big baskets that create co-occurrence mechanically, and ordinary rules look extraordinary.</p>
+</section>
+
+<section>
+  <h2 class="col">D · Anomaly counts are set by a parameter</h2>
+  <figure class="plate">
+    <svg id="contrast-chart" class="chart" viewBox="0 0 900 260" role="img" aria-label="Relative contrast falling with dimensionality while the flag rate stays at 5 percent"></svg>
+    <figcaption><b>Pure Gaussian noise, 500 points.</b> Isolation Forest flagged exactly 25 points (5%) at every dimension, all false. Meanwhile relative contrast fell from 79.9 to 0.30.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2 class="col">G · The validator's own error rates</h2>
+  <figure class="plate">
+    <svg id="power-chart" class="chart" viewBox="0 0 900 260" role="img" aria-label="Power rising with planted effect size"></svg>
+    <figcaption><b>Power curve, 6 trials per effect.</b> Minimum detectable effect at 80% power: 0.30.</figcaption>
+  </figure>
+  <div class="scroll"><table>
+    <thead><tr><th>Measure</th><th style="text-align:right">Result</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Family-wise false-positive rate</td><td class="num hit">0.0%</td><td>0 of 10 noise datasets; target ≤ 5%</td></tr>
+      <tr><td>Ghosts per noise dataset</td><td class="num">0.7 → 0.00</td><td>Naive → validated</td></tr>
+      <tr><td>False discovery rate at effect 0.35</td><td class="num">11.1%</td><td>Inconclusive: 9 discoveries, about 40 needed</td></tr>
+      <tr><td>Recall at effect 0.35</td><td class="num">100%</td><td></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2 class="col">Limits</h2>
+  <ul class="col" style="display:grid;gap:0.5rem;padding-left:1.2rem;margin:0">
+    <li>Per-rule p-values compare a rule with all null rules, not with the same itemset's null distribution.</li>
+    <li>No correction across k in clustering, so one k beat noise on pure noise (p = 0.048).</li>
+    <li>Benchmarks used small trial counts; the FDR estimate is explicitly inconclusive.</li>
+    <li>A null model shows that structure exists, not that it matters in the domain.</li>
+  </ul>
+</section>
+
+<footer>
+  <span>Ghost Patterns 2.0 · MIT licence · Python 3.9+</span>
+  <span>Report the ghost rate next to every finding.</span>
+</footer>
+</main>
+
+<script src="assets/js/ghost.js"></script>
+<script>
+(function () {
+  function draw() {
+    Ghost.caseChart(document.getElementById("case-chart"), [
+      ["Pure noise", 20, 17.0, 0], ["Planted rules", 170, 2.5, 8], ["UCI Mushroom", 11340, 0.0, 312],
+    ]);
+    const contrast = [[2, 79.93], [5, 6.77], [10, 2.65], [20, 1.46], [50, 0.73], [100, 0.45], [200, 0.30]];
+    Ghost.lineChart(document.getElementById("contrast-chart"),
+      contrast.map(([d, c], i) => ({ x: i, y: Math.log10(c) + 1, d, c })), {
+        ymax: 3, yticks: [0.477, 1, 2], yfmt: (t) => (10 ** (t - 1)).toFixed(t < 1 ? 1 : 0),
+        xfmt: (i) => contrast[i][0], xlabel: "dimensions", ylabel: "relative contrast (log)",
+        ref: Math.log10(0.3) + 1, refLabel: "distances collapsed below 0.3",
+        labels: (p) => p.c,
+      });
+    Ghost.lineChart(document.getElementById("power-chart"),
+      [[0.05, 0], [0.1, 0], [0.2, 0.67], [0.3, 0.83], [0.5, 1]].map(([x, y]) => ({ x, y })), {
+        ymax: 1.1, yticks: [0, 0.5, 1], yfmt: (t) => Math.round(t * 100) + "%",
+        xlabel: "planted effect", ylabel: "fraction recovered",
+        ref: 0.8, refLabel: "80% power", labels: (p) => Math.round(p.y * 100) + "%",
+      });
+  }
+  draw();
+  onThemeChange(draw);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lab · Ghost Patterns</title>
+<meta name="description" content="Plant a rule in noise and watch a null-calibrated validator separate it from the ghosts. Runs in your browser.">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/site.js"></script>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <div class="brand"><a href="index.html">Ghost<span>.</span>Patterns</a></div>
+    <a class="link" href="index.html">Home</a>
+    <a class="link" href="lab.html" aria-current="page">Lab</a>
+    <a class="link" href="method.html">Method</a>
+    <a class="link" href="results.html">Results</a>
+    <a class="link" href="docs.html">Docs</a>
+    <button class="theme-toggle" type="button" aria-label="Switch colour theme">Dark</button>
+    <button class="theme-toggle menu-toggle" type="button" aria-expanded="false" aria-label="Open menu">Menu</button>
+  </div>
+</nav>
+
+<main class="wrap">
+<header class="page-head">
+  <p class="label">Lab</p>
+  <h1>Plant one real rule in a pile of <em>noise.</em></h1>
+  <p class="lede col">Everything here runs in your browser. The lab generates noise columns plus one planted link, <code>source=a → target=yes</code>, mines every two-item rule, then mines shuffled copies to build the ghost distribution. A rule is called real only if it beats the strongest ghost often enough.</p>
+</header>
+
+<section style="padding-block-start:2rem">
+  <div class="presets" role="group" aria-label="Presets">
+    <span class="label" style="align-self:center">Try:</span>
+    <button class="chip" type="button" data-preset="noise">Pure noise</button>
+    <button class="chip" type="button" data-preset="weak">Weak effect</button>
+    <button class="chip" type="button" data-preset="strong">Strong effect</button>
+    <button class="chip" type="button" data-preset="wide">Many columns, few rows</button>
+    <button class="chip" type="button" data-preset="inert">Too few null runs</button>
+  </div>
+  <div class="lab-grid">
+    <div class="lab">
+      <div class="controls">
+        <div class="control">
+          <label for="noise">Noise columns <output id="noise-out"></output></label>
+          <input id="noise" type="range" min="2" max="40" step="1" value="16">
+          <small>More columns, more chances for chance.</small>
+        </div>
+        <div class="control">
+          <label for="rows">Rows <output id="rows-out"></output></label>
+          <input id="rows" type="range" min="200" max="3000" step="100" value="800">
+          <small>Small samples make ghosts stronger.</small>
+        </div>
+        <div class="control">
+          <label for="effect">Planted effect <output id="effect-out"></output></label>
+          <input id="effect" type="range" min="0" max="0.6" step="0.05" value="0.3">
+          <small>Rise in P(target=yes) when source=a. 0 means nothing is real.</small>
+        </div>
+        <div class="control">
+          <label for="runs">Null runs <output id="runs-out"></output></label>
+          <input id="runs" type="range" min="5" max="199" step="1" value="39">
+          <small>Below 19, p can never reach 0.05.</small>
+        </div>
+        <div class="control">
+          <label for="minLift">Min lift <output id="minLift-out"></output></label>
+          <input id="minLift" type="range" min="1.05" max="1.6" step="0.05" value="1.15">
+          <small>Lower thresholds mine more rules and more ghosts.</small>
+        </div>
+        <div class="control">
+          <label for="minSupport">Min support <output id="minSupport-out"></output></label>
+          <input id="minSupport" type="range" min="0.01" max="0.1" step="0.01" value="0.03">
+        </div>
+        <div class="row-actions">
+          <button id="rerun" class="btn primary small" type="button">New random dataset</button>
+          <button id="csv" class="btn small" type="button">Download rules (CSV)</button>
+        </div>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+
+    <div class="lab">
+      <div class="readout">
+        <div><span class="n" id="r-naive">0</span><span class="label">rules mined</span></div>
+        <div><span class="n ghost" id="r-ghost">0</span><span class="label">from noise, per run</span></div>
+        <div><span class="n real" id="r-real">0</span><span class="label">beat the noise</span></div>
+        <div><span class="n" id="r-max">0</span><span class="label">strongest ghost</span></div>
+      </div>
+      <p class="verdict" id="verdict"></p>
+      <figure class="plate" style="background:var(--paper)">
+        <svg id="lab-chart" class="chart" viewBox="0 0 900 240" role="img" aria-label="Distribution of rule lifts in shuffled data with this dataset's rules marked"></svg>
+        <div class="legend">
+          <span><i class="key" style="background:var(--ghost-fill)"></i>lifts mined from shuffled copies</span>
+          <span><i class="key" style="background:var(--signal)"></i>real</span>
+          <span><i class="key" style="background:var(--ghost)"></i>ghost</span>
+        </div>
+      </figure>
+      <div class="scroll" style="max-height:24rem;overflow-y:auto">
+        <table>
+          <thead><tr><th>Verdict</th><th>Rule</th><th style="text-align:right">Lift</th><th style="text-align:right">Conf.</th><th style="text-align:right">p</th></tr></thead>
+          <tbody id="rules-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="col">What to look for</h2>
+  <div class="trio">
+    <div>
+      <span class="algo">Effect = 0</span>
+      <h3>The right answer is nothing</h3>
+      <p>Rules are still mined, often dozens. The validator should reject all of them. Occasional single survivors are the 5% error rate the test allows.</p>
+    </div>
+    <div>
+      <span class="algo">Columns ↑, rows ↓</span>
+      <h3>Ghosts get stronger</h3>
+      <p>Watch the strongest ghost move right. A fixed lift cut-off that worked on one dataset fails on the next; a null-calibrated bar moves with the data.</p>
+    </div>
+    <div>
+      <span class="algo">Null runs &lt; 19</span>
+      <h3>An inert test</h3>
+      <p>With R runs the smallest p-value is 1/(R+1). Below 19 runs nothing can reach 0.05, and a real effect is reported as absent. The Python package refuses this.</p>
+    </div>
+  </div>
+  <p class="col" style="color:var(--ink-soft)">This lab is simplified: two-item rules, one null model, no redundancy filtering. The <a href="method.html">full method</a> adds those.</p>
+</section>
+
+<footer>
+  <span>Ghost Patterns 2.0 · MIT licence · Python 3.9+</span>
+  <span>Report the ghost rate next to every finding.</span>
+</footer>
+</main>
+
+<script src="assets/js/ghost.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const fields = ["noise", "rows", "effect", "runs", "minLift", "minSupport"];
+  const fmt = { effect: (v) => v.toFixed(2), minLift: (v) => v.toFixed(2), minSupport: (v) => v.toFixed(2) };
+  const presets = {
+    noise:  { noise: 16, rows: 800,  effect: 0,    runs: 39, minLift: 1.15, minSupport: 0.03 },
+    weak:   { noise: 16, rows: 800,  effect: 0.1,  runs: 39, minLift: 1.15, minSupport: 0.03 },
+    strong: { noise: 16, rows: 1500, effect: 0.45, runs: 39, minLift: 1.15, minSupport: 0.03 },
+    wide:   { noise: 40, rows: 300,  effect: 0.3,  runs: 39, minLift: 1.15, minSupport: 0.03 },
+    inert:  { noise: 16, rows: 1500, effect: 0.45, runs: 10, minLift: 1.15, minSupport: 0.03 },
+  };
+  let seed = 7, last = null, pending = null;
+
+  function values() {
+    const v = {};
+    fields.forEach((f) => { v[f] = +$(f).value; });
+    return v;
+  }
+  function showValues() {
+    const v = values();
+    fields.forEach((f) => { $(f + "-out").textContent = fmt[f] ? fmt[f](v[f]) : v[f]; });
+  }
+
+  function run() {
+    showValues();
+    const v = values();
+    const t0 = performance.now();
+    const res = Ghost.experiment(Object.assign({}, v, { seed, minConf: 0.3 }));
+    last = res;
+    const real = res.rules.filter((r) => r.real);
+    $("r-naive").textContent = res.rules.length;
+    $("r-ghost").textContent = res.ghostRate.toFixed(1);
+    $("r-real").textContent = real.length;
+    $("r-max").textContent = res.ghostMax ? res.ghostMax.toFixed(2) : "none";
+
+    const falseHits = real.filter((r) => !r.planted).length;
+    let msg;
+    if (res.pFloor > 0.05) {
+      msg = "<b>Inert test.</b> With " + v.runs + " null runs the smallest possible p-value is " +
+        res.pFloor.toFixed(3) + ", above 0.05, so nothing can be called real, whatever the data holds.";
+    } else if (!real.length && v.effect === 0) {
+      msg = "<b>Correct.</b> There was nothing to find, and nothing survived. All " + res.rules.length + " mined rules are ghosts.";
+    } else if (!real.length) {
+      msg = "<b>Nothing survived.</b> The planted effect is too weak to separate from noise here. Add rows or raise the effect.";
+    } else if (!falseHits) {
+      msg = "<b>Found it.</b> " + real.length + " rule" + (real.length > 1 ? "s" : "") +
+        " beat the noise, all linking source and target. The other " + (res.rules.length - real.length) + " mined rules are ghosts.";
+    } else {
+      msg = "<b>" + real.length + " rules survived, " + falseHits + " involving noise columns.</b> At α = 0.05 an occasional false survivor is expected.";
+    }
+    $("verdict").innerHTML = msg;
+    Ghost.distChart($("lab-chart"), res, 900, 240);
+
+    const body = $("rules-body");
+    body.replaceChildren();
+    res.rules.slice(0, 200).forEach((r) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td><span class="rule"><span class="tag ' + (r.real ? "real" : "ghost") + '">' +
+        (r.real ? "REAL" : "GHOST") + "</span></span></td><td class=\"mono\"></td>" +
+        '<td class="num">' + r.lift.toFixed(3) + '</td><td class="num">' + (r.conf * 100).toFixed(0) +
+        '%</td><td class="num">' + r.p.toFixed(3) + "</td>";
+      tr.children[1].textContent = "{" + r.ante + "} → {" + r.cons + "}";
+      if (!r.real) tr.children[1].style.color = "var(--ink-soft)";
+      body.appendChild(tr);
+    });
+    $("status").textContent = "Computed in " + Math.round(performance.now() - t0) + " ms · seed " + seed;
+  }
+
+  fields.forEach((f) => $(f).addEventListener("input", () => {
+    showValues();
+    clearTimeout(pending);
+    pending = setTimeout(run, 150);
+  }));
+  $("rerun").addEventListener("click", () => { seed = (seed * 1103515245 + 12345) >>> 0; run(); });
+  document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => {
+    const p = presets[b.dataset.preset];
+    fields.forEach((f) => { $(f).value = p[f]; });
+    run();
+  }));
+  $("csv").addEventListener("click", () => {
+    if (!last) return;
+    const lines = ["verdict,antecedent,consequent,lift,confidence,support,p_value"];
+    last.rules.forEach((r) => lines.push([r.real ? "REAL" : "GHOST", r.ante, r.cons,
+      r.lift.toFixed(4), r.conf.toFixed(4), r.support.toFixed(4), r.p.toFixed(4)].join(",")));
+    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "ghostpatterns-lab-rules.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  run();
+  onThemeChange(run);
+})();
+</script>
+</body>
+</html>

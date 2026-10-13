@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ghost Patterns</title>
+<meta name="description" content="Data-mining results calibrated against structureless noise. Only patterns that beat the noise are reported.">
+<meta property="og:title" content="Ghost Patterns">
+<meta property="og:description" content="Your miner always finds something. Ghost Patterns tells you which of it is real.">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/site.js"></script>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <div class="brand"><a href="index.html">Ghost<span>.</span>Patterns</a></div>
+    <a class="link" href="index.html" aria-current="page">Home</a>
+    <a class="link" href="lab.html">Lab</a>
+    <a class="link" href="method.html">Method</a>
+    <a class="link" href="results.html">Results</a>
+    <a class="link" href="docs.html">Docs</a>
+    <button class="theme-toggle" type="button" aria-label="Switch colour theme">Dark</button>
+    <button class="theme-toggle menu-toggle" type="button" aria-expanded="false" aria-label="Open menu">Menu</button>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<header class="hero">
+  <p class="label">Null-calibrated data mining · Python</p>
+  <h1>Your miner always finds something. <em>Is any of it real?</em></h1>
+  <p class="lede">Ghost Patterns reruns your exact mining pipeline on copies of the data with the structure shuffled away, then keeps only the findings that beat what the noise produced.</p>
+  <div class="cta">
+    <a class="btn primary" href="lab.html">Open the lab</a>
+    <a class="btn" href="docs.html#install">Install</a>
+  </div>
+  <figure class="plate">
+    <svg id="hero-chart" class="chart" viewBox="0 0 900 260" role="img" aria-label="Histogram of rule lifts found in shuffled data, with real rules marked to the right of it"></svg>
+    <div class="legend">
+      <span><i class="key" style="background:var(--ghost-fill)"></i>lift of every rule mined from shuffled copies</span>
+      <span><i class="key" style="background:var(--signal)"></i>rules that beat the strongest ghost</span>
+      <span><i class="key" style="background:var(--ghost)"></i>rules noise also produces</span>
+    </div>
+    <figcaption id="hero-cap">Computed in your browser on page load.</figcaption>
+  </figure>
+</header>
+
+<section>
+  <p class="label">The problem</p>
+  <h2 class="col">Mining algorithms cannot return nothing.</h2>
+  <div class="trio">
+    <div>
+      <span class="algo">Apriori</span>
+      <h3>Rules from shuffled data</h3>
+      <p>Lower the support threshold far enough and pure noise yields rules with lift above 1. More columns, more rules.</p>
+    </div>
+    <div>
+      <span class="algo">k-means</span>
+      <h3>Clusters from static</h3>
+      <p>Ask for k clusters and you get k clusters, with a respectable silhouette, from a featureless Gaussian blob.</p>
+    </div>
+    <div>
+      <span class="algo">Isolation Forest</span>
+      <h3>Anomalies on quota</h3>
+      <p>Set <code>contamination=0.05</code> and exactly 5% of points are flagged, in 2 dimensions or 200, real outliers or none.</p>
+    </div>
+  </div>
+  <p class="col lede">So "the algorithm found patterns" is not a result. A pattern becomes a result when it beats what the same pipeline finds in data that has no pattern. Everything below that bar is a <span class="ghost-word">ghost</span>.</p>
+</section>
+
+<section>
+  <p class="label">What it does</p>
+  <h2 class="col">Five checks between mining and a claim.</h2>
+  <div class="trio">
+    <div>
+      <span class="algo">Leakage</span>
+      <h3>Catch rules true by construction</h3>
+      <p>Functional dependencies, duplicate encodings, sorted rows and arithmetic totals, found before mining.</p>
+    </div>
+    <div>
+      <span class="algo">Calibration</span>
+      <h3>Beat the strongest ghost</h3>
+      <p>Family-wise and false-discovery-rate tests against eight null models, each matched to a kind of data.</p>
+    </div>
+    <div>
+      <span class="algo">Attribution</span>
+      <h3>Find the load-bearing columns</h3>
+      <p>Shuffle one column at a time to see where the structure lives and which columns are decoration.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="label">Highlights</p>
+  <h2 class="col">Measured on data where the answer is known.</h2>
+  <div class="lessons">
+    <div class="lesson">
+      <span class="big">20 → 0</span>
+      <h3>rules on pure noise</h3>
+      <p>Naive mining reports 20 rules from data with no structure. Shuffled copies produce 17 per run, so none survive.</p>
+    </div>
+    <div class="lesson">
+      <span class="big">280</span>
+      <h3>significant rules from a lottery</h3>
+      <p>Sorted draws with engineered features pass every statistical test. The leakage check finds all five causes before mining.</p>
+    </div>
+    <div class="lesson">
+      <span class="big">292 → 0</span>
+      <h3>false discoveries from the wrong null</h3>
+      <p>Column shuffling on basket data invents 292 rules. Swap randomization, which keeps basket sizes, finds none.</p>
+    </div>
+  </div>
+  <div class="next">
+    <a href="lab.html"><strong>Lab</strong><span>Plant a rule in noise and watch the validator find it.</span></a>
+    <a href="method.html"><strong>Method</strong><span>The tests, the formulas, and the order they run in.</span></a>
+    <a href="results.html"><strong>Results</strong><span>Every experiment, with its numbers and its limits.</span></a>
+  </div>
+</section>
+
+<section id="use">
+  <p class="label">Use it</p>
+  <h2 class="col">One command, one shareable report.</h2>
+  <div class="tools">
+    <div class="tool">
+      <h3>Command line</h3>
+      <p>Analyse a CSV, ask what predicts one column, and open the report.</p>
+      <div class="copy-row"><button class="copy" type="button">Copy</button><pre><code>pip install .
+ghostpatterns analyse mushrooms.csv \
+    --target Mushroom_quality --open</code></pre></div>
+    </div>
+    <div class="tool">
+      <h3>Python library</h3>
+      <p>The same engine the command uses, returning plain data.</p>
+      <div class="copy-row"><button class="copy" type="button">Copy</button><pre><code>from ghostpatterns.analyse import Options, analyse, save
+
+result = analyse(df, Options(target="label", n_null=100))
+print(result.headline())
+save(result, "results/mydata")</code></pre></div>
+    </div>
+  </div>
+  <p><a href="docs.html">Read the full documentation →</a></p>
+</section>
+
+<footer>
+  <span>Ghost Patterns 2.0 · MIT licence · Python 3.9+</span>
+  <span>Report the ghost rate next to every finding.</span>
+</footer>
+</main>
+
+<script src="assets/js/ghost.js"></script>
+<script>
+(function () {
+  function draw() {
+    const res = Ghost.experiment({ rows: 1000, noise: 18, effect: 0.35, seed: 11 });
+    Ghost.distChart(document.getElementById("hero-chart"), res, 900, 260);
+    const real = res.rules.filter((r) => r.real).length;
+    document.getElementById("hero-cap").innerHTML =
+      "<b>One run, computed in your browser.</b> 1,000 rows, 18 noise columns and one planted link. " +
+      res.rules.length + " rules were mined; shuffled copies of the same data produced " +
+      res.ghostRate.toFixed(1) + " per run. " + real + " beat the strongest ghost.";
+  }
+  draw();
+  onThemeChange(draw);
+})();
+</script>
+</body>
+</html>

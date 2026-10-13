@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Method · Ghost Patterns</title>
+<meta name="description" content="How Ghost Patterns separates real patterns from ghosts: leakage checks, null models, redundancy filtering and calibrated tests.">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="assets/js/site.js"></script>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <div class="brand"><a href="index.html">Ghost<span>.</span>Patterns</a></div>
+    <a class="link" href="index.html">Home</a>
+    <a class="link" href="lab.html">Lab</a>
+    <a class="link" href="method.html" aria-current="page">Method</a>
+    <a class="link" href="results.html">Results</a>
+    <a class="link" href="docs.html">Docs</a>
+    <button class="theme-toggle" type="button" aria-label="Switch colour theme">Dark</button>
+    <button class="theme-toggle menu-toggle" type="button" aria-expanded="false" aria-label="Open menu">Menu</button>
+  </div>
+</nav>
+
+<main class="wrap">
+<header class="page-head">
+  <p class="label">Method</p>
+  <h1>Five steps, in an order <em>that matters.</em></h1>
+  <p class="lede col">Deduplicating after calibration corrects for thousands of copies of one finding. Skipping the leakage check validates your own preprocessing. The package fixes the order.</p>
+</header>
+
+<div class="doc">
+  <aside class="toc" aria-label="On this page">
+    <span class="label">On this page</span>
+    <a href="#order">The pipeline</a>
+    <a href="#leakage">1 · Leakage</a>
+    <a href="#mining">2 · Mining</a>
+    <a href="#redundancy">3 · Redundancy</a>
+    <a href="#nulls">4 · Null models</a>
+    <a href="#calibration">5 · Calibration</a>
+    <a href="#guard">Replicate guard</a>
+    <a href="#attribution">Attribution</a>
+    <a href="#clusters">Clusters</a>
+    <a href="#anomalies">Anomalies</a>
+  </aside>
+
+  <article class="doc-body">
+    <h2 id="order">The pipeline</h2>
+    <ol class="steps">
+      <li><h3>Check for leakage</h3><p>On raw data, before mining.</p></li>
+      <li><h3>Mine, focused on one question</h3><p>Apriori; optionally only rules that predict a target column.</p></li>
+      <li><h3>Remove padded copies</h3><p>A sampling-error threshold, applied before any correction.</p></li>
+      <li><h3>Run the same pipeline on matched noise</h3><p>One of eight null models, chosen for the data type.</p></li>
+      <li><h3>Calibrate every finding</h3><p>Family-wise and false-discovery-rate tests against the null.</p></li>
+    </ol>
+
+    <h2 id="leakage">1 · Leakage</h2>
+    <p>Leakage produces dependence that is genuinely present, so it passes every statistical test. It must be caught separately. Each detector looks for one signature of structure the analyst created.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Detector</th><th>Signature</th><th>Measure</th></tr></thead>
+      <tbody>
+        <tr><td>Functional dependency</td><td>One column determines another</td><td>U(B|A) ≥ 0.999</td></tr>
+        <tr><td>Near-determinism</td><td>Almost determines</td><td>U ≥ 0.95</td></tr>
+        <tr><td>Duplicate encoding</td><td>Two names for one variable</td><td>U in both directions ≥ 0.95</td></tr>
+        <tr><td>Row ordering</td><td>Values sorted across columns</td><td>≥ 95% of rows monotone over a window of ≥ 3 columns</td></tr>
+        <tr><td>Arithmetic derivation</td><td>A total or a difference</td><td>Column equals a ± b</td></tr>
+        <tr><td>Strong association</td><td>Advisory only</td><td>Normalised mutual information ≥ 0.15</td></tr>
+      </tbody>
+    </table></div>
+    <p>U is the uncertainty coefficient, the fraction of B's entropy explained by A:</p>
+    <div class="formula">U(B | A) = 1 − H(B | A) / H(B)</div>
+    <div class="note"><b>Run it on raw data.</b> Binning launders leakage: it weakens the signatures the detectors look for without weakening the spurious rules. The advisory tier exists for data that has already been transformed.</div>
+
+    <h2 id="mining">2 · Mining</h2>
+    <p>Each categorical column becomes items <code>column=value</code>. Columns with more than 15 distinct values are left out, because high-cardinality columns are a major source of ghosts. Apriori finds itemsets above minimum support; each split into antecedent A and consequent C gives a rule.</p>
+    <div class="formula">confidence = s(A ∪ C) / s(A) &nbsp;&nbsp; lift = confidence / s(C)</div>
+    <p><b>Target focus.</b> Name a target column and only rules with a single target item as consequent are tested, and the null is filtered the same way. This replaces thousands of arbitrary hypotheses with the question you are asking.</p>
+
+    <h2 id="redundancy">3 · Redundancy</h2>
+    <p>If {A}→{C} is real, {A, X}→{C} scores well for almost any irrelevant X. Worse, adding a condition subsamples the data, so lift becomes noisier and the best padded child usually beats its parent by chance. A fixed tolerance lets those children through. The margin must scale with sampling error:</p>
+    <div class="formula">keep child r only if lift(r) &gt; lift(parent) + z · lift(parent) / √count(r), z = 1.96</div>
+    <p>This runs before calibration, so the multiple-comparison correction applies to distinct findings only. In the planted-signal experiment it reduced 451 mined rules to 166 distinct ones.</p>
+
+    <h2 id="nulls">4 · Null models</h2>
+    <p>A null model destroys exactly the structure being claimed and keeps everything else. Keep too little and real findings look falsely impressive; keep too much and they look falsely weak.</p>
+    <div class="scroll"><table class="nulls">
+      <thead><tr><th>Model</th><th>Keeps</th><th>Destroys</th><th>Use for</th></tr></thead>
+      <tbody>
+        <tr><td>IndependentShuffle</td><td>Each column's exact values</td><td>All dependence between columns</td><td>General tabular data</td></tr>
+        <tr><td>MarginalResample</td><td>Each column's distribution</td><td>Exact value counts</td><td>Rare categories</td></tr>
+        <tr><td>GaussianMatched</td><td>Means and spreads</td><td>All correlation</td><td>Clusters, anomalies</td></tr>
+        <tr><td>UniformHull</td><td>Column ranges</td><td>Density</td><td>Gap statistic</td></tr>
+        <tr><td>BlockShuffle</td><td>Short-range autocorrelation</td><td>Long-range structure</td><td>Time series</td></tr>
+        <tr><td>PhaseRandomized</td><td>Power spectrum</td><td>Nonlinear structure</td><td>Returns, signals</td></tr>
+        <tr><td>SwapRandomization</td><td>Basket sizes and item frequencies</td><td>Item affinity</td><td>Transactions</td></tr>
+        <tr><td>ConditionalPermutation</td><td>All pairwise links</td><td>Higher-order interactions</td><td>Is {A,B}→C more than A→C plus B→C?</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note"><b>The null is a modelling decision.</b> On basket data with no real affinity, column shuffling let 292 of 442 rules through; swap randomization let none through. Report which null you used and why.</div>
+
+    <h2 id="calibration">5 · Calibration</h2>
+    <p>The identical pipeline runs on R null replicates. Two distributions are kept: every null lift (L) and the best lift of each run (M). For a real rule with lift ℓ:</p>
+    <div class="formula">p = (#{x ∈ L : x ≥ ℓ} + 1) / (|L| + 1) &nbsp;&nbsp; p<sub>FWER</sub> = (#{x ∈ M : x ≥ ℓ} + 1) / (R + 1)</div>
+    <p>Per-rule p-values are corrected with Benjamini–Hochberg to give q-values. The +1 in each fraction keeps p above zero: a finite null can never justify certainty.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Verdict</th><th>Condition</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="hit">REAL (family-wise)</td><td>p<sub>FWER</sub> ≤ α</td><td>Beats the best rule noise produced</td></tr>
+        <tr><td>likely real (FDR)</td><td>q ≤ α only</td><td>Report with a caveat</td></tr>
+        <tr><td style="color:var(--ink-soft)">GHOST</td><td>neither</td><td>Noise produces this anyway</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2 id="guard">The replicate guard</h2>
+    <p>With R null runs, the smallest attainable p-value is 1/(R+1). If that is above α, the test can never reject, and it reports its own inability as "nothing found".</p>
+    <div class="formula">R<sub>min</sub> = ⌈1/α⌉ − 1 &nbsp;&nbsp;→ 19 runs for α = 0.05, 99 for α = 0.01</div>
+    <p>This was a real bug during development: a cluster test with 10 runs reported two perfectly separated blobs as noise. Every empirical p-value in the package now passes through the guard. <a href="lab.html">Try the "Too few null runs" preset in the lab.</a></p>
+
+    <h2 id="attribution">Column attribution</h2>
+    <p>Count the strong rules, then shuffle one column at a time and count again. The drop shows where the structure lives. Columns with no significant drop are decoration and can be removed without losing anything.</p>
+
+    <h2 id="clusters">Clusters</h2>
+    <ul>
+      <li><b>Calibrated silhouette.</b> Real silhouette minus the silhouette k-means reaches on matched Gaussian noise. The excess is the evidence, not the raw score.</li>
+      <li><b>Gap statistic.</b> Dispersion against a uniform reference; smallest k with gap(k) ≥ gap(k+1) − s(k+1).</li>
+      <li><b>Stability.</b> Adjusted Rand index across 80% subsamples, compared with noise, because k-means on a blob is not perfectly unstable either.</li>
+    </ul>
+
+    <h2 id="anomalies">Anomalies</h2>
+    <p>The null's 99th-percentile score sets the threshold, so 1% of null points exceed it by construction. Only an observed rate well above 1% is evidence. Relative contrast, (farthest − nearest) / nearest, is reported first: below 0.3, distances have collapsed and distance-based detectors measure nothing.</p>
+
+    <div class="next" style="margin-top:2rem">
+      <a href="results.html"><strong>Results</strong><span>What the method does on data where the answer is known.</span></a>
+      <a href="docs.html"><strong>Docs</strong><span>Run it on your own data.</span></a>
+    </div>
+  </article>
+</div>
+
+<footer>
+  <span>Ghost Patterns 2.0 · MIT licence · Python 3.9+</span>
+  <span>Report the ghost rate next to every finding.</span>
+</footer>
+</main>
+</body>
+</html>
